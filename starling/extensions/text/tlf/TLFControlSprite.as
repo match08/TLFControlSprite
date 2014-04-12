@@ -1,10 +1,11 @@
 /**
- * 图文混排:在原作者基础上加入了<img/>标签支持,侦听，加入load xml和load html功能等
+ * 图文混排:在原作者基础上加入了<img/>标签支持,侦听，加入load xml和load html功能，支持feathers框架等
+ * 			
  * Thank you for Guillaume Nachury
  * 
- * Version:beta1.1
+ * Version:beta2.0
  * 
- * Time：2014-03-28
+ * Time：2014-04-11
  * 
  * DownLoad:https://github.com/match08
  * 
@@ -63,10 +64,10 @@ package starling.extensions.text.tlf {
 	import starling.events.Touch;
 	import starling.events.TouchEvent;
 	import starling.events.TouchPhase;
+	import starling.extensions.display.LinkDisplay;
+	import starling.extensions.events.TLFFlowEvent;
 	import starling.textures.Texture;
 	import starling.textures.TextureSmoothing;
-	import starling.extensions.events.TLFFlowEvent;
-	import starling.extensions.display.LinkDisplay;
 	
 	 [Event(name="ready",type="starling.extensions.events.TLFFlowEvent")]
 	 [Event(name="link_touched",type="starling.extensions.events.TLFFlowEvent")]
@@ -118,9 +119,18 @@ package starling.extensions.text.tlf {
 		private static var _sTextLineFactory:TextFlowTextLineFactory;
 		private var _savedTLF:TextFlow;
 		
+		
+		private var _isFlatten:Boolean=false;
+		
+		private var _graphicIndex:int=0;
+		private var _graphicLength:uint=0;
+		
+		protected var _showImaTag:Boolean=false;
+		
 		public var showBoundaries:Boolean = false;
 		public var oversizeClickArea:Boolean = false;
 		public var overSizeInPx:int = 10;
+		
 		
 		/** Creates a TLFSprite from plain text. 
 		 *  Optionally providing default formatting with TextLayoutFormat and composition
@@ -167,12 +177,9 @@ package starling.extensions.text.tlf {
 			var tlfSprite:TLFControlSprite = null;
 			var textFlow:TextFlow = TextConverter.importToFlow(text ? text : "", type);
 			
-
+			
 			if (textFlow)
 				tlfSprite = new TLFControlSprite(textFlow, format, compositionWidth, compositionHeight, type,$isShowImaTag);
-			
-			
-			
 			
 			return tlfSprite;
 		}
@@ -224,6 +231,7 @@ package starling.extensions.text.tlf {
 			var links:Array = [];
 			super();
 			
+			
 			initTLF();
 			
 			mType = type;
@@ -261,8 +269,7 @@ package starling.extensions.text.tlf {
 			mTextFlow.addEventListener(CompositionCompleteEvent.COMPOSITION_COMPLETE, tlfEventHandler);
 			
 			mRequiresRedraw = true;
-			
-			
+
 		}
 
 		
@@ -274,28 +281,26 @@ package starling.extensions.text.tlf {
 			mTextFlow.removeEventListener(CompositionCompleteEvent.COMPOSITION_COMPLETE, tlfEventHandler);
 			
 			if (mImage) mImage.texture.dispose();
+			removeLinkMap();
 			super.dispose();
 		}
 		
-		private function onFlatten(event:starling.events.Event):void
+		private function onFlatten(event:starling.events.Event=null):void
 		{
+			removeEventListener(starling.events.Event.FLATTEN, onFlatten);
 			if (mRequiresRedraw) redrawContents();
 		}
-		
-		private var _graphicIndex:int=0;
-		private var _graphicLength:uint;
-		protected var _showImaTag:Boolean=false;
 		
 		protected function tlfEventHandler(event:flash.events.Event):void
 		{
 			if(event.type=="inlineGraphicStatusChange" && _showImaTag){
 
-				if(mImage){
-					mImage.texture =Texture.fromBitmapData(this.createRenderedBitmapData());
+				if(mImage && _graphicIndex>0){
+					mImage.texture =Texture.fromBitmapData(createRenderedBitmapData());
 				}
 				if(_graphicLength == _graphicIndex ++){//加载完成
-					this.dispatchEvent(new TLFFlowEvent(TLFFlowEvent.COMPLETE));
 					_graphicIndex = 0;
+					this.dispatchEvent(new TLFFlowEvent(TLFFlowEvent.COMPLETE));
 				}
 				this.dispatchEvent(new TLFFlowEvent(TLFFlowEvent.INLINE_GRAPHIC_STATUS_CHANGE));
 				
@@ -309,6 +314,7 @@ package starling.extensions.text.tlf {
 		/** @inheritDoc */
 		public override function render(support:RenderSupport, parentAlpha:Number):void
 		{
+
 			if (mRequiresRedraw) redrawContents();
 			super.render(support, parentAlpha);
 		}
@@ -327,16 +333,12 @@ package starling.extensions.text.tlf {
 			if (!bitmapData) return;
 			
 			var texture:Texture = Texture.fromBitmapData(bitmapData, false, false, scale);
-			
 			if (mImage == null) 
 			{
 				mImage = new Image(texture);
 				mImage.touchable = false;
 				mImage.smoothing = mSmoothing;
 				addChild(mImage);
-				if(linkClickEnable){//使能链接侦听
-					addEventListener(TouchEvent.TOUCH, onTxtTouch);
-				}
 			}
 			else 
 			{ 
@@ -345,7 +347,8 @@ package starling.extensions.text.tlf {
 				mImage.readjustSize(); 
 			}
 			updateBorder();
-			dispatchEvent(new TLFFlowEvent(TLFFlowEvent.READY));
+			
+			this.dispatchEvent(new TLFFlowEvent(TLFFlowEvent.READY));
 			
 		}		
 		/* **************************
@@ -447,13 +450,13 @@ package starling.extensions.text.tlf {
 			}
 			//let's create a map of all the clickable areas
 			if(mType == TextConverter.TEXT_FIELD_HTML_FORMAT){
+			
 				createLinkMap(textWidth, textHeight);
 			}
 			
 			// finished need for generated lines or shapes
 			sTextLinesOrShapes.length = 0;
 			
-					
 			return bitmapData;
 		}
 		/**渲染为bitmap*/
@@ -469,11 +472,9 @@ package starling.extensions.text.tlf {
 			return new Image(Texture.fromBitmapData(createRenderedBitmapData()));
 		}
 		
-		/**
-		 * 创建超链接
-		 * 
-		 */
+		//创建超链接************************************************************************
 		private function createLinkMap(textW:Number, textH:Number):void{
+			
 			var ctrlr:ContainerController = new ContainerController(new flash.display.Sprite(), textW,textH);	
 			savedTLF.flowComposer.addController(ctrlr);
 			savedTLF.flowComposer.updateAllControllers();
@@ -490,6 +491,9 @@ package starling.extensions.text.tlf {
 				_linkMap=_linkMap.concat(createClickableZone(le, composer));
 			}
 			
+			removeLinkMap();
+			
+			//超链点击,用linkDisPlay实现
 			for (var i:int = 0; i < _linkMap.length; i++) 
 			{
 				var linkObject:Object = _linkMap[i];
@@ -499,15 +503,25 @@ package starling.extensions.text.tlf {
 				linkDisPlay.y = rec.y;
 				linkDisPlay.alpha = showBoundaries?0.3:0;
 				
-				if(linkClickEnable){//使能超链点击,用linkDisPlay实现
-					linkDisPlay.linkElem=linkObject.linkElem;
-				}
+				
+				linkDisPlay.linkElem=linkObject.linkElem;
+			
 				addChild(linkDisPlay);
-
+				
 			}
 			
 		}
-		
+		//移除超链接************************************************************************
+		private function removeLinkMap():void{
+			
+			while(numChildren>1){
+				var obj:* = getChildAt(0);
+				removeChild(obj);
+				if(obj is LinkDisplay){
+					obj.dispose();
+				}
+			}
+		}
 		
 		private function createClickableZone(le:LinkElement, composer:IFlowComposer):Array{
 			var area:Array = [];
@@ -583,7 +597,7 @@ package starling.extensions.text.tlf {
 			{
 				var rect:Rectangle = o.area;
 				if(rect.contains(touchX, touchY)){
-					dispatchEvent(new starling.events.Event("link_touched",true, o.linkElem));
+					this.dispatchEvent(new TLFFlowEvent(TLFFlowEvent.LINK_TOUCHED,true, o.linkElem));
 					return;
 				}
 			}
@@ -885,25 +899,56 @@ package starling.extensions.text.tlf {
 			mRequiresRedraw = true;
 		}
 
-		//重写此方法
-		override public function addEventListener($type:String, $listener:Function):void{
+		
+		//重写方法*************************************************************************************************************************
+		
 
-			switch($type)
-			{
-				case TLFFlowEvent.LINK_TOUCHED://超链接
-				{
-					linkClickEnable=true;
-					break;
-				}
-					
-				default:
-				{
-					break;
-				}
-			}
+		/**
+		 * 添加侦听
+		 */
+		override public function addEventListener($type:String, $listener:Function):void{
+			
 			super.addEventListener($type, $listener);
 			
+			if($type==TLFFlowEvent.LINK_TOUCHED){//超链接
+				
+				if(!hasEventListener(TouchEvent.TOUCH)){
+					linkClickEnable=true;
+					addEventListener(TouchEvent.TOUCH, onTxtTouch);
+				}
+			}		
+			//全部加载完成/更新
+			if($type==TLFFlowEvent.COMPLETE ||$type==TLFFlowEvent.UPDATE ||$type==TLFFlowEvent.READY){
+				onFlatten();
+			}
+			
 		}
+
+		/**
+		 * 扁平化
+		 */
+		override public function flatten():void{
+			
+			if(!_isFlatten){
+				
+				_isFlatten = true;
+				super.flatten();
+			}
+		}
+		/**
+		 * 解开扁平化
+		 */
+		override public function unflatten():void{
+			
+			if(_isFlatten){
+				
+				_isFlatten = false;
+				super.unflatten();
+			}
+			
+		}
+		
+		//************************************************************************************************************************************
 		/**
 		 * 使用类型查找元素集:
 		 * getElementsByTypeName('p');
@@ -921,8 +966,10 @@ package starling.extensions.text.tlf {
 		 * */
 		public function getElementsByID($idName:String):FlowElement{
 			return mTextFlow.getElementByID($idName);
-		}	
+		}
 		
+
+	
 	}
 }
 
