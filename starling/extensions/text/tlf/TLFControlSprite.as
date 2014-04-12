@@ -924,30 +924,6 @@ package starling.extensions.text.tlf {
 			
 		}
 
-		/**
-		 * 扁平化
-		 */
-		override public function flatten():void{
-			
-			if(!_isFlatten){
-				
-				_isFlatten = true;
-				super.flatten();
-			}
-		}
-		/**
-		 * 解开扁平化
-		 */
-		override public function unflatten():void{
-			
-			if(_isFlatten){
-				
-				_isFlatten = false;
-				super.unflatten();
-			}
-			
-		}
-		
 		//************************************************************************************************************************************
 		/**
 		 * 使用类型查找元素集:
