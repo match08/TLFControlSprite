@@ -3,9 +3,9 @@
  * 			
  * Thank you for Guillaume Nachury
  * 
- * Version:beta2.0
+ * Version:beta2.1
  * 
- * Time：2014-04-11
+ * Time：2014-05-16
  * 
  * DownLoad:https://github.com/match08
  * 
@@ -68,6 +68,8 @@ package starling.extensions.text.tlf {
 	import starling.extensions.events.TLFFlowEvent;
 	import starling.textures.Texture;
 	import starling.textures.TextureSmoothing;
+	
+	import utils.StringUtil;
 	
 	 [Event(name="ready",type="starling.extensions.events.TLFFlowEvent")]
 	 [Event(name="link_touched",type="starling.extensions.events.TLFFlowEvent")]
@@ -296,6 +298,7 @@ package starling.extensions.text.tlf {
 			if(event.type=="inlineGraphicStatusChange" && _showImaTag){
 
 				if(mImage && _graphicIndex>0){
+					if (mImage.texture) mImage.texture.dispose();//销毁上一次的纹理
 					mImage.texture =Texture.fromBitmapData(createRenderedBitmapData());
 				}
 				if(_graphicLength == _graphicIndex ++){//加载完成
@@ -928,7 +931,7 @@ package starling.extensions.text.tlf {
 		/**
 		 * 使用类型查找元素集:
 		 * getElementsByTypeName('p');
-		 * $typeNameValue  'img'  'p'  'a' ...
+		 * @param  $typeNameValue  'img'  'p'  'a' ...
 		 * @return Array
 		 * */
 		public function getElementsByTypeName($typeNameValue:String):Array{
@@ -937,13 +940,12 @@ package starling.extensions.text.tlf {
 		/**
 		 * 使用id查找元素
 		 * <img id='myImg'/>   getElementsByID('myImg');  
-		 * $idName   elements's id 
+		 * @param    $idName   elements's id 
 		 * @return   FlowElement
 		 * */
 		public function getElementsByID($idName:String):FlowElement{
 			return mTextFlow.getElementByID($idName);
 		}
-		
 
 	
 	}
